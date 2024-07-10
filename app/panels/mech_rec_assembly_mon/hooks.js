@@ -16,7 +16,7 @@ import { object2Base64XML } from "../../core/utils"; //Вспомогатель�
 //---------
 
 //Размер страницы данных
-const DATA_GRID_PAGE_SIZE = 50;
+const DATA_GRID_PAGE_SIZE = 5;
 
 //-----------
 //Тело модуля
@@ -44,9 +44,9 @@ const useMechRecAssemblyMon = () => {
         planCtlgs: [],
         planCtlgsLoaded: false,
         selectedPlanCtlg: {},
-        plans: [],
-        plansLoaded: false,
-        selectedPlan: {}
+        planSpecs: [],
+        planSpecsLoaded: false,
+        selectedPlanSpec: {}
     });
 
     //Подключение к контексту взаимодействия с сервером
@@ -76,7 +76,7 @@ const useMechRecAssemblyMon = () => {
                     respArg: "COUT",
                     isArray: name => name === "XFCPRODPLAN_INFO"
                 });
-                setState(pv => ({ ...pv, init: true, plans: [...(data?.XFCPRODPLAN_INFO || [])], plansLoaded: true }));
+                setState(pv => ({ ...pv, init: true, planSpecs: [...(data?.XFCPRODPLAN_INFO || [])], planSpecsLoaded: true }));
             }
             // eslint-disable-next-line react-hooks/exhaustive-deps
         },
@@ -88,7 +88,7 @@ const useMechRecAssemblyMon = () => {
         setState(pv => ({
             ...pv,
             selectedPlanCtlg: { ...planCtlg },
-            selectedPlan: {},
+            selectedPlanSpec: {},
             showPlanList: false
         }));
     };
@@ -98,7 +98,7 @@ const useMechRecAssemblyMon = () => {
         setState(pv => ({
             ...pv,
             selectedPlanCtlg: {},
-            selectedPlan: {},
+            selectedPlanSpec: {},
             showPlanList: false
         }));
 
@@ -114,7 +114,7 @@ const useMechRecAssemblyMon = () => {
         if (state.selectedPlanCtlg) {
             loadPlans(state.selectedPlanCtlg.NRN);
         } else {
-            setState(pv => ({ ...pv, plans: [], plansLoaded: false }));
+            setState(pv => ({ ...pv, planSpecs: [], planSpecsLoaded: false }));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [state.selectedPlanCtlg]);
@@ -123,7 +123,7 @@ const useMechRecAssemblyMon = () => {
 };
 
 //Хук для информации по производственным составам
-const useCostProductComposition = plan => {
+const useCostProductComposition = planSpec => {
     //Собственное состояние
     let [costProductComposition, setCostProductComposition] = useState({
         showPlanList: false,
@@ -141,7 +141,7 @@ const useCostProductComposition = plan => {
         const loadData = async () => {
             const data = await executeStored({
                 stored: "PKG_P8PANELS_MECHREC.FCPRODCMP_DETAILS_GET",
-                args: { NFCPRODPLAN: plan },
+                args: { NFCPRODPLANSP: planSpec },
                 respArg: "COUT",
                 isArray: name => name === "XFCPRODCMP"
             });
@@ -153,15 +153,15 @@ const useCostProductComposition = plan => {
                 selectedProduct: null
             }));
         };
-        if (plan) loadData();
-    }, [plan, executeStored]);
+        if (planSpec) loadData();
+    }, [planSpec, executeStored]);
 
     //Вернём данные
     return [costProductComposition, setCostProductComposition];
 };
 
 //Хук для таблицы детализации изделия
-const useProductDetailsTable = (plan, product, orders, pageNumber, stored) => {
+const useProductDetailsTable = (planSpec, product, orders, pageNumber, stored) => {
     //Собственное состояние - флаг загрузки
     const [isLoading, setLoading] = useState(false);
 
@@ -184,8 +184,7 @@ const useProductDetailsTable = (plan, product, orders, pageNumber, stored) => {
                 const data = await executeStored({
                     stored,
                     args: {
-                        NPRODCMPSP: product,
-                        NFCPRODPLAN: plan,
+                        NFCPRODPLANSP: planSpec,
                         CORDERS: { VALUE: object2Base64XML(orders, { arrayNodeName: "orders" }), SDATA_TYPE: SERV_DATA_TYPE_CLOB },
                         NPAGE_NUMBER: pageNumber,
                         NPAGE_SIZE: DATA_GRID_PAGE_SIZE,
@@ -205,8 +204,8 @@ const useProductDetailsTable = (plan, product, orders, pageNumber, stored) => {
                 setLoading(false);
             }
         };
-        if (plan && product) loadData();
-    }, [plan, product, orders, pageNumber, stored, executeStored, SERV_DATA_TYPE_CLOB]);
+        if (planSpec && product) loadData();
+    }, [planSpec, product, orders, pageNumber, stored, executeStored, SERV_DATA_TYPE_CLOB]);
 
     //Вернём данные
     return { data, isLoading };

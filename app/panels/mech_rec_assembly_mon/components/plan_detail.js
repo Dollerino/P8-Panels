@@ -25,7 +25,8 @@ const STYLES = {
     BOX_INFO_MAIN: {
         border: "1px solid",
         borderRadius: "25px",
-        height: "35vh"
+        height: "35vh",
+        backgroundColor: "background.detail_table"
     },
     BOX_INFO_SUB: isMessage => ({
         overflow: "hidden",
@@ -45,7 +46,8 @@ const STYLES = {
         alignItems: "center",
         border: "1px solid",
         borderRadius: "25px",
-        height: "17vh"
+        height: "17vh",
+        backgroundColor: "background.detail_info"
     },
     PRODUCT_SELECTOR_CONTAINER: {
         display: "flex",
@@ -55,7 +57,8 @@ const STYLES = {
         border: "1px solid",
         borderRadius: "25px",
         height: "53vh",
-        marginTop: "16px"
+        marginTop: "16px",
+        backgroundColor: "background.product_selector"
     },
     PRODUCT_SELECTOR_MODEL: { width: "70%" },
     PLAN_INFO_MAIN: {
@@ -69,45 +72,55 @@ const STYLES = {
         width: "280px",
         borderBottom: "1px solid"
     },
-    TABLE_DETAILS: { height: "240px" },
+    TABLE_DETAILS: { backgroundColor: "background.detail_table", height: "240px" },
     TABLE_DETAILS_HEADER_CELL: maxWidth => ({
+        backgroundColor: "background.detail_table",
+        color: "text.detail_table.fontColor",
         padding: "2px 2px",
         fontSize: "11px",
         textAlign: "center",
         lineHeight: "1rem",
         ...(maxWidth ? { maxWidth } : {})
     }),
-    TABLE_DETAILS_DATA_CELL: textAlign => ({ padding: "2px 2px", fontSize: "11px", ...(textAlign ? { textAlign } : {}) }),
-    TABLE_DETAILS_MORE_BUTTON: { borderRadius: "25px", height: "20px" },
+    TABLE_DETAILS_DATA_CELL: textAlign => ({
+        backgroundColor: "background.detail_table",
+        color: "text.detail_table.fontColor",
+        padding: "2px 2px",
+        fontSize: "11px",
+        ...(textAlign ? { textAlign } : {})
+    }),
+    TABLE_DETAILS_MORE_BUTTON: { borderRadius: "25px", height: "20px", color: "text.more_button.fontColor" },
+    TABLE_DETAILS_TEXT: { color: "text.detail_table.fontColor" },
     CARD_DETAILS_CONTAINER: { minWidth: "1200px", maxWidth: "1400px" },
-    CARD_DETAILS_NAVIGATION_STACK: { width: "100%" }
+    CARD_DETAILS_NAVIGATION_STACK: { width: "100%" },
+    NAVIGATE_BUTTONS: { color: "text.title.fontColor" }
 };
 
 //------------------------------------
 //Вспомогательные функции и компоненты
 //------------------------------------
 
-//Информация о плане
-const PlanInfo = ({ plan }) => {
+//Информация о выпуске плана
+const PlanSpecInfo = ({ planSpec }) => {
     return (
         <>
             <Box sx={STYLES.PLAN_INFO_MAIN}>
                 <Box sx={STYLES.PLAN_INFO_SUB}>
-                    <Typography variant="UDO_body1" mt={1}>
+                    <Typography variant="PlanSpecInfo" mt={1}>
                         Номер борта:
                     </Typography>
-                    <Typography variant="subtitle2">{plan.SNUMB}</Typography>
+                    <Typography variant="subtitle2">{planSpec.SNUMB}</Typography>
                 </Box>
                 <Box sx={STYLES.PLAN_INFO_SUB}>
-                    <Typography variant="UDO_body1" mt={1}>
+                    <Typography variant="PlanSpecInfo" mt={1}>
                         Год выпуска:
                     </Typography>
-                    <Typography variant="subtitle2">{plan.NYEAR}</Typography>
+                    <Typography variant="subtitle2">{planSpec.NYEAR}</Typography>
                 </Box>
             </Box>
             <ProgressBox
-                progress={plan.NPROGRESS}
-                detail={plan.SDETAIL}
+                progress={planSpec.NPROGRESS}
+                detail={planSpec.SDETAIL}
                 width={"110px"}
                 height={"110px"}
                 progressVariant={"subtitle2"}
@@ -117,13 +130,13 @@ const PlanInfo = ({ plan }) => {
     );
 };
 
-//Контроль свойств - Информация о плане
-PlanInfo.propTypes = {
-    plan: PropTypes.object
+//Контроль свойств - Информация о спецификации плана
+PlanSpecInfo.propTypes = {
+    planSpec: PropTypes.object
 };
 
 //Модель выпуска плана
-const PlanProductCompositionModel = ({ model, products, onProductSelect }) => {
+const PlanSpecProductCompositionModel = ({ model, products, onProductSelect }) => {
     //При выборе детали на модели
     const handleProductClick = ({ item }) => {
         const product = products.find(p => p.SMODEL_ID == item.id);
@@ -150,7 +163,7 @@ const PlanProductCompositionModel = ({ model, products, onProductSelect }) => {
 };
 
 //Контроль свойств - Модель выпуска плана
-PlanProductCompositionModel.propTypes = {
+PlanSpecProductCompositionModel.propTypes = {
     model: PropTypes.any,
     products: PropTypes.array,
     onProductSelect: PropTypes.func
@@ -171,12 +184,12 @@ const dataCellRender = ({ row, columnDef }) => ({
 });
 
 //Таблица детализации изделия
-const ProductDetailsTable = ({ plan, product, stored, noProductMessage, noDataFoundMessage, title }) => {
+const ProductDetailsTable = ({ planSpec, product, stored, noProductMessage, noPlanSpecMessage, noDataFoundMessage, title }) => {
     //Собственное состояние
-    const [state, setState] = useState({ plan: null, product: null, orders: null, pageNumber: 1 });
+    const [state, setState] = useState({ planSpec: null, product: null, orders: null, pageNumber: 1 });
 
     //Собственное состояние - данные таблицы
-    const { data, isLoading } = useProductDetailsTable(state.plan, state.product, state.orders, state.pageNumber, stored);
+    const { data, isLoading } = useProductDetailsTable(state.planSpec, state.product, state.orders, state.pageNumber, stored);
 
     //При изменении состояния сортировки
     const handleOrderChanged = ({ orders }) => setState(pv => ({ ...pv, orders: [...orders], pageNumber: 1 }));
@@ -186,19 +199,25 @@ const ProductDetailsTable = ({ plan, product, stored, noProductMessage, noDataFo
 
     //При изменении изделия
     useEffect(() => {
-        setState(pv => ({ ...pv, plan, product, orders: null, pageNumber: 1 }));
-    }, [product, plan]);
+        setState(pv => ({ ...pv, planSpec, product, orders: null, pageNumber: 1 }));
+    }, [product, planSpec]);
 
     //Генерация содержимого
     return (
         <Box sx={STYLES.BOX_INFO_SUB(!product || data.rows.length === 0)}>
             {!product ? (
-                <Typography variant="UDO_body2">{noProductMessage}</Typography>
+                <Typography variant="ProductDetailMessage" sx={STYLES.TABLE_DETAILS_TEXT}>
+                    {noProductMessage}
+                </Typography>
+            ) : !planSpec ? (
+                <Typography variant="ProductDetailMessage" sx={STYLES.TABLE_DETAILS_TEXT}>
+                    {noPlanSpecMessage}
+                </Typography>
             ) : (
                 <>
                     <Stack direction="row" spacing={2} justifyContent="center" alignItems="center">
                         <CircularProgress size={18} sx={{ opacity: isLoading ? 1 : 0 }} />
-                        <Typography variant="h4">
+                        <Typography variant="h4" sx={STYLES.TABLE_DETAILS_TEXT}>
                             <b>{title}</b>
                         </Typography>
                     </Stack>
@@ -225,10 +244,11 @@ const ProductDetailsTable = ({ plan, product, stored, noProductMessage, noDataFo
 
 //Контроль свойств - Таблица детализации изделия
 ProductDetailsTable.propTypes = {
-    plan: PropTypes.number.isRequired,
+    planSpec: PropTypes.number,
     product: PropTypes.number,
     stored: PropTypes.string.isRequired,
     noProductMessage: PropTypes.string.isRequired,
+    noPlanSpecMessage: PropTypes.string.isRequired,
     noDataFoundMessage: PropTypes.string.isRequired,
     title: PropTypes.string.isRequired
 };
@@ -238,9 +258,9 @@ ProductDetailsTable.propTypes = {
 //-----------
 
 //Детализация по объекту
-const PlanDetail = ({ plan, disableNavigatePrev = false, disableNavigateNext = false, onNavigate, onBack }) => {
+const PlanSpecDetail = ({ planSpec, disableNavigatePrev = false, disableNavigateNext = false, onNavigate, onBack }) => {
     //Собственное состояние - данные производственных составов SVG
-    const [costProductComposition, setCostProductComposition] = useCostProductComposition(plan.NRN);
+    const [costProductComposition, setCostProductComposition] = useCostProductComposition(planSpec.NRN);
 
     //Выбор элемента изделия
     const setProduct = product => {
@@ -260,14 +280,14 @@ const PlanDetail = ({ plan, disableNavigatePrev = false, disableNavigateNext = f
                 <Grid item display="flex" justifyContent="center" xs={1}>
                     <Stack display="flex" direction="row" justifyContent="flex-end" alignItems="center" sx={STYLES.CARD_DETAILS_NAVIGATION_STACK}>
                         <IconButton disabled={disableNavigatePrev} onClick={() => handleNavigate(-1)}>
-                            <Icon>navigate_before</Icon>
+                            <Icon sx={STYLES.NAVIGATE_BUTTONS}>navigate_before</Icon>
                         </IconButton>
                     </Stack>
                 </Grid>
                 <Grid item xs={10}>
                     <Container maxWidth={false}>
                         <Button onClick={() => (onBack ? onBack() : null)}>
-                            <Stack direction="row">
+                            <Stack direction="row" color="text.title.fontColor">
                                 <Icon>chevron_left</Icon>Назад
                             </Stack>
                         </Button>
@@ -276,31 +296,33 @@ const PlanDetail = ({ plan, disableNavigatePrev = false, disableNavigateNext = f
                             <Grid item xs={5}>
                                 <Box sx={STYLES.BOX_INFO_MAIN}>
                                     <ProductDetailsTable
-                                        plan={plan.NRN}
+                                        planSpec={costProductComposition.selectedProduct?.NFCPRODPLANSP_LINK}
                                         product={costProductComposition.selectedProduct?.NRN}
-                                        stored={"PKG_P8PANELS_MECHREC.FCROUTLST_DG_BY_PRDCMPSP_GET"}
+                                        stored={"PKG_P8PANELS_MECHREC.FCROUTLST_DG_BY_LINKED_GET"}
                                         noProductMessage={"Укажите элемент модели, чтобы увидеть информацию о маршрутных картах"}
+                                        noPlanSpecMessage={"Не определена связанная запись производственной программы"}
                                         noDataFoundMessage={"Маршрутные карты не найдены"}
                                         title={"Маршрутные карты"}
                                     />
                                 </Box>
                                 <Box sx={STYLES.BOX_INFO_MAIN} mt={2}>
                                     <ProductDetailsTable
-                                        plan={plan.NRN}
+                                        planSpec={costProductComposition.selectedProduct?.NFCPRODPLANSP_LINK}
                                         product={costProductComposition.selectedProduct?.NRN}
-                                        stored={"PKG_P8PANELS_MECHREC.FCDELIVSH_DG_BY_PRDCMPSP_GET"}
+                                        stored={"PKG_P8PANELS_MECHREC.FCDELIVSH_DG_BY_LINKED_GET"}
                                         noProductMessage={"Укажите элемент модели, чтобы увидеть информацию о комплектовочных ведомостях"}
+                                        noPlanSpecMessage={"Не определена связанная запись производственной программы"}
                                         noDataFoundMessage={"Комплектовочные ведомости не найдены"}
-                                        title={"Дефицит комплектации"}
+                                        title={"Дефицит комплектующих"}
                                     />
                                 </Box>
                             </Grid>
                             <Grid item xs={7}>
                                 <Box sx={STYLES.DETAIL_INFO}>
-                                    <PlanInfo plan={plan} />
+                                    <PlanSpecInfo planSpec={planSpec} />
                                 </Box>
                                 <Box sx={STYLES.PRODUCT_SELECTOR_CONTAINER}>
-                                    <PlanProductCompositionModel
+                                    <PlanSpecProductCompositionModel
                                         model={costProductComposition.model}
                                         products={costProductComposition.products}
                                         onProductSelect={setProduct}
@@ -313,7 +335,7 @@ const PlanDetail = ({ plan, disableNavigatePrev = false, disableNavigateNext = f
                 <Grid item display="flex" justifyContent="center" xs={1}>
                     <Stack display="flex" direction="row" justifyContent="flex-start" alignItems="center" sx={STYLES.CARD_DETAILS_NAVIGATION_STACK}>
                         <IconButton disabled={disableNavigateNext} onClick={() => handleNavigate(1)}>
-                            <Icon>navigate_next</Icon>
+                            <Icon sx={STYLES.NAVIGATE_BUTTONS}>navigate_next</Icon>
                         </IconButton>
                     </Stack>
                 </Grid>
@@ -323,8 +345,8 @@ const PlanDetail = ({ plan, disableNavigatePrev = false, disableNavigateNext = f
 };
 
 //Контроль свойств - Детализация по объекту
-PlanDetail.propTypes = {
-    plan: PropTypes.object,
+PlanSpecDetail.propTypes = {
+    planSpec: PropTypes.object,
     disableNavigatePrev: PropTypes.bool,
     disableNavigateNext: PropTypes.bool,
     onNavigate: PropTypes.func,
@@ -335,4 +357,4 @@ PlanDetail.propTypes = {
 //Интерфейс модуля
 //----------------
 
-export { PlanDetail };
+export { PlanSpecDetail };

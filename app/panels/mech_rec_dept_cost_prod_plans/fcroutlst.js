@@ -7,14 +7,14 @@
 //Подключение библиотек
 //---------------------
 
-import React, { useState, useCallback, useEffect, useContext } from "react"; //Классы React
+import React, { useState, useContext } from "react"; //Классы React
 import PropTypes from "prop-types"; //Контроль свойств компонента
 import { Typography, Box, Paper, Dialog, DialogContent, DialogActions, Button, TextField, IconButton, Icon } from "@mui/material"; //Интерфейсные элементы
 import { P8PDataGrid, P8P_DATA_GRID_SIZE } from "../../components/p8p_data_grid"; //Таблица данных
 import { P8P_DATA_GRID_CONFIG_PROPS } from "../../config_wrapper"; //Подключение компонентов к настройкам приложения
 import { BackEndСtx } from "../../context/backend"; //Контекст взаимодействия с сервером
-import { object2Base64XML } from "../../core/utils"; //Вспомогательные функции
 import { CostRouteListsSpecsDataGrid } from "./fcroutlstsp"; //Состояние таблицы заказов маршрутных листов
+import { useCostRouteLists } from "./hooks.js"; //Хук состояния таблицы маршрутных листов
 
 //---------
 //Константы
@@ -24,12 +24,11 @@ import { CostRouteListsSpecsDataGrid } from "./fcroutlstsp"; //Состояни�
 const STYLES = {
     CONTAINER: { textAlign: "center" },
     TABLE: { paddingTop: "15px" },
-    TABLE_SUM: { textAlign: "right", paddingTop: "5px", paddingRight: "15px" },
     DIALOG_BUTTONS: { marginTop: "10px", width: "240px" }
 };
 
 //---------------------------------------------
-//Вспомогательные функции форматирования данных
+//Вспомогательные функции и компоненты
 //---------------------------------------------
 
 //Генерация представления расширения строки
@@ -43,113 +42,41 @@ export const rowExpandRender = ({ row }) => {
 
 //Форматирование значений колонок
 const dataCellRender = ({ row, columnDef, handlePriorEditOpen }) => {
-    //!!! Пока отключено - не удалять
-    switch (columnDef.name) {
-        case "NPRIOR_PARTY":
-            return {
-                data: (
-                    <>
-                        {row["NPRIOR_PARTY"]}
-                        <IconButton edge="end" title="Изменить приоритет" onClick={() => handlePriorEditOpen(row["NRN"], row["NPRIOR_PARTY"])}>
-                            <Icon>edit</Icon>
-                        </IconButton>
-                    </>
-                )
-            };
+    //Если колонка "Приоритет партии"
+    if (columnDef.name === "NPRIOR_PARTY") {
+        return {
+            data: (
+                <>
+                    {row["NPRIOR_PARTY"]}
+                    <IconButton edge="end" title="Изменить приоритет" onClick={() => handlePriorEditOpen(row["NRN"])}>
+                        <Icon>edit</Icon>
+                    </IconButton>
+                </>
+            )
+        };
     }
     return {
         data: row[columnDef]
     };
 };
 
-//-----------
-//Тело модуля
-//-----------
+//Диалог с изменением приоритета маршрутного листа
+const CostRouteListPriorChange = ({ costRouteLists, setCostRouteLists, executeStored }) => {
+    //Считывание изначального значения приоритета МЛ
+    const initPrior = costRouteLists.rows[costRouteLists.rows.findIndex(obj => obj.NRN == costRouteLists.editPriorNRN)].NPRIOR_PARTY;
 
-//Таблица маршрутных листов
-const CostRouteListsDataGrid = ({ task }) => {
-    //Собственное состояние - таблица данных
-    const [costRouteLists, setCostRouteLists] = useState({
-        dataLoaded: false,
-        columnsDef: [],
-        orders: null,
-        rows: [],
-        reload: true,
-        pageNumber: 1,
-        morePages: true,
-        editPriorNRN: null,
-        editPriorValue: null
-    });
-
-    //Подключение к контексту взаимодействия с сервером
-    const { executeStored, SERV_DATA_TYPE_CLOB } = useContext(BackEndСtx);
-
-    //Размер страницы данных
-    const DATA_GRID_PAGE_SIZE = 5;
-
-    //Загрузка данных таблицы с сервера
-    const loadData = useCallback(async () => {
-        if (costRouteLists.reload) {
-            const data = await executeStored({
-                stored: "PKG_P8PANELS_MECHREC.FCROUTLST_DEPT_DG_GET",
-                args: {
-                    NFCPRODPLANSP: task,
-                    CORDERS: { VALUE: object2Base64XML(costRouteLists.orders, { arrayNodeName: "orders" }), SDATA_TYPE: SERV_DATA_TYPE_CLOB },
-                    NPAGE_NUMBER: costRouteLists.pageNumber,
-                    NPAGE_SIZE: DATA_GRID_PAGE_SIZE,
-                    NINCLUDE_DEF: costRouteLists.dataLoaded ? 0 : 1
-                },
-                respArg: "COUT"
-            });
-            setCostRouteLists(pv => ({
-                ...pv,
-                columnsDef: data.XCOLUMNS_DEF ? [...data.XCOLUMNS_DEF] : pv.columnsDef,
-                rows: pv.pageNumber == 1 ? [...(data.XROWS || [])] : [...pv.rows, ...(data.XROWS || [])],
-                dataLoaded: true,
-                reload: false,
-                morePages: (data.XROWS || []).length >= DATA_GRID_PAGE_SIZE
-            }));
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [
-        costRouteLists.reload,
-        costRouteLists.filters,
-        costRouteLists.orders,
-        costRouteLists.dataLoaded,
-        costRouteLists.pageNumber,
-        executeStored,
-        SERV_DATA_TYPE_CLOB
-    ]);
-
-    //При необходимости обновить данные таблицы
-    useEffect(() => {
-        loadData();
-    }, [costRouteLists.reload, loadData]);
-
-    //При изменении состояния сортировки
-    const handleOrderChanged = ({ orders }) => setCostRouteLists(pv => ({ ...pv, orders: [...orders], pageNumber: 1, reload: true }));
-
-    //При изменении количества отображаемых страниц
-    const handlePagesCountChanged = () => setCostRouteLists(pv => ({ ...pv, pageNumber: pv.pageNumber + 1, reload: true }));
-
-    //При открытии изменения приоритета партии
-    const handlePriorEditOpen = (NRN, nPriorValue) => {
-        setCostRouteLists(pv => ({ ...pv, editPriorNRN: NRN, editPriorValue: nPriorValue }));
-    };
+    //Собственное состояние - Значение приоритета
+    const [state, setState] = useState(initPrior);
 
     //При закрытии изменения приоритета партии
     const handlePriorEditClose = () => {
-        setCostRouteLists(pv => ({ ...pv, editPriorNRN: null, editPriorValue: null }));
+        setCostRouteLists(pv => ({ ...pv, editPriorNRN: null }));
     };
 
-    //При изменении значения приоритета партии
-    const handlePriorFormChanged = e => {
-        setCostRouteLists(pv => ({ ...pv, editPriorValue: e.target.value }));
-    };
-
-    //Изменение приоритета
-    const priorChange = useCallback(
-        async (NRN, PriorValue, rows) => {
+    //При нажатии на изменение приоритета партии
+    const handlePriorChange = () => {
+        //Асинхронное изменение
+        const asyncChange = async (NRN, PriorValue, rows) => {
             try {
                 await executeStored({
                     stored: "PKG_P8PANELS_MECHREC.FCROUTLST_PRIOR_PARTY_UPDATE",
@@ -164,14 +91,68 @@ const CostRouteListsDataGrid = ({ task }) => {
             } catch (e) {
                 throw new Error(e.message);
             }
-        },
-        [executeStored]
-    );
-
-    //При нажатии на изменение приоритета партии
-    const handlePriorChange = () => {
+        };
         //Изменяем значение
-        priorChange(costRouteLists.editPriorNRN, costRouteLists.editPriorValue, costRouteLists.rows);
+        asyncChange(costRouteLists.editPriorNRN, state, costRouteLists.rows);
+    };
+
+    return (
+        <Dialog open onClose={() => handlePriorEditClose()}>
+            <DialogContent>
+                <Box>
+                    <TextField
+                        name="editPriorValue"
+                        label="Новое значение приоритета"
+                        variant="standard"
+                        fullWidth
+                        type="number"
+                        value={state}
+                        onChange={event => {
+                            setState(event.target.value);
+                        }}
+                    />
+                    <Box>
+                        <Button onClick={handlePriorChange} variant="contained" sx={STYLES.DIALOG_BUTTONS}>
+                            Изменить
+                        </Button>
+                    </Box>
+                </Box>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => handlePriorEditClose(null)}>Закрыть</Button>
+            </DialogActions>
+        </Dialog>
+    );
+};
+
+//Контроль свойств - Диалог с изменением приоритета маршрутного листа
+CostRouteListPriorChange.propTypes = {
+    costRouteLists: PropTypes.object.isRequired,
+    setCostRouteLists: PropTypes.func.isRequired,
+    executeStored: PropTypes.func.isRequired
+};
+
+//-----------
+//Тело модуля
+//-----------
+
+//Таблица маршрутных листов
+const CostRouteListsDataGrid = ({ task }) => {
+    //Собственное состояние - таблица данных
+    const [costRouteLists, setCostRouteLists] = useCostRouteLists(task);
+
+    //Подключение к контексту взаимодействия с сервером
+    const { executeStored } = useContext(BackEndСtx);
+
+    //При изменении состояния сортировки
+    const handleOrderChanged = ({ orders }) => setCostRouteLists(pv => ({ ...pv, orders: [...orders], pageNumber: 1, reload: true }));
+
+    //При изменении количества отображаемых страниц
+    const handlePagesCountChanged = () => setCostRouteLists(pv => ({ ...pv, pageNumber: pv.pageNumber + 1, reload: true }));
+
+    //При открытии изменения приоритета партии
+    const handlePriorEditOpen = NRN => {
+        setCostRouteLists(pv => ({ ...pv, editPriorNRN: NRN }));
     };
 
     //Генерация содержимого
@@ -198,29 +179,7 @@ const CostRouteListsDataGrid = ({ task }) => {
                 </>
             ) : null}
             {costRouteLists.editPriorNRN ? (
-                <Dialog open onClose={() => handlePriorEditClose(null)}>
-                    <DialogContent>
-                        <Box>
-                            <TextField
-                                name="editPriorValue"
-                                label="Новое значение приоритета"
-                                variant="standard"
-                                fullWidth
-                                type="number"
-                                value={costRouteLists.editPriorValue}
-                                onChange={handlePriorFormChanged}
-                            />
-                            <Box>
-                                <Button onClick={handlePriorChange} variant="contained" sx={STYLES.DIALOG_BUTTONS}>
-                                    Изменить
-                                </Button>
-                            </Box>
-                        </Box>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => handlePriorEditClose(null)}>Закрыть</Button>
-                    </DialogActions>
-                </Dialog>
+                <CostRouteListPriorChange costRouteLists={costRouteLists} setCostRouteLists={setCostRouteLists} executeStored={executeStored} />
             ) : null}
         </div>
     );

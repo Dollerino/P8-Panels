@@ -7,14 +7,29 @@
 //Подключение библиотек
 //---------------------
 
-import React, { useState, useContext } from "react"; //Классы React
+import React, { useState } from "react"; //Классы React
 import PropTypes from "prop-types"; //Контроль свойств компонента
-import { Drawer, Fab, Box, List, ListItemButton, ListItemText, Typography, TextField, FormGroup, FormControlLabel, Checkbox } from "@mui/material"; //Интерфейсные элементы
+import {
+    Drawer,
+    Fab,
+    Box,
+    List,
+    ListItemButton,
+    ListItemText,
+    Typography,
+    TextField,
+    FormGroup,
+    FormControlLabel,
+    Checkbox,
+    Container,
+    IconButton,
+    Stack,
+    Icon
+} from "@mui/material"; //Интерфейсные элементы
 import { ThemeProvider } from "@mui/material/styles"; //Подключение темы
-import { MessagingСtx } from "../../context/messaging"; //Контекст сообщений
-import { PlansList } from "./components/plans_list"; //Список планов
-import { PlanDetail } from "./components/plan_detail"; //Детали плана
-import { theme } from "./styles/themes"; //Стиль темы
+import { PlanSpecsList } from "./components/plans_list"; //Список планов
+import { PlanSpecDetail } from "./components/plan_detail"; //Детали плана
+import { lightTheme, darkTheme } from "./styles/themes"; //Стиль темы
 import { useMechRecAssemblyMon, useFilteredPlanCtlgs } from "./hooks"; //Вспомогательные хуки
 
 //---------
@@ -23,9 +38,19 @@ import { useMechRecAssemblyMon, useFilteredPlanCtlgs } from "./hooks"; //Всп�
 
 //Стили
 const STYLES = {
-    PLANS_FINDER: { marginTop: "10px", marginLeft: "10px", width: "93%" },
-    PLANS_CHECKBOX_HAVEDOCS: { alignContent: "space-around" },
-    PLANS_LIST_ITEM_ZERODOCS: { backgroundColor: "#ebecec" },
+    PLANS_FINDER: {
+        marginTop: "10px",
+        marginLeft: "10px",
+        width: "93%",
+        [`& .MuiFormLabel-root.Mui-focused`]: { color: "text.title.fontColor" },
+        [`& .MuiInputBase-root`]: { color: "text.plans_finder.fontColor" },
+        [`& .MuiInputBase-root.Mui-focused::after`]: { borderBottom: "2px solid black" }
+    },
+    PLANS_CHECKBOX_HAVEDOCS: {
+        alignContent: "space-around",
+        [`& .MuiCheckbox-root.Mui-checked`]: { color: "text.title.fontColor" }
+    },
+    PLANS_LIST_ITEM_ZERODOCS: { backgroundColor: "background.plans_zero_docs" },
     PLANS_LIST_ITEM_PRIMARY: { wordWrap: "break-word" },
     PLANS_LIST_ITEM_SECONDARY: { wordWrap: "break-word", fontSize: "0.6rem", textTransform: "uppercase" },
     PLANS_BUTTON: { position: "absolute" },
@@ -33,9 +58,18 @@ const STYLES = {
         width: "350px",
         display: "inline-block",
         flexShrink: 0,
-        [`& .MuiDrawer-paper`]: { width: "350px", display: "inline-block", boxSizing: "border-box" }
+        [`& .MuiDrawer-paper`]: {
+            width: "350px",
+            display: "inline-block",
+            boxSizing: "border-box",
+            backgroundColor: "background.plans_drawer_paper",
+            color: "text.plans_finder.fontColor"
+        }
     },
-    PLANS_LIST_BOX: { paddingTop: "20px" }
+    PLANS_LIST_BOX: { paddingTop: "20px" },
+    ROOT_BG: { backgroundColor: "background.main", minHeight: "calc(100vh - 64px)", overflow: "hidden" },
+    THEME_CHANGER: { color: "text.title.fontColor" },
+    MAIN_TITLE: { textAlign: "center", color: "text.title.fontColor", marginTop: "-24px" }
 };
 
 //------------------------------------
@@ -116,6 +150,8 @@ PlanCtlgsList.propTypes = {
 
 //Корневая панель мониторинга сборки изделий
 const MechRecAssemblyMon = () => {
+    //Состояние - текущая тема
+    const [theme, setTheme] = useState(lightTheme);
     //Собственное состояние
     const [state, setState, selectPlanCtlg, unselectPlanCtlg] = useMechRecAssemblyMon();
 
@@ -132,9 +168,6 @@ const MechRecAssemblyMon = () => {
     //Массив отфильтрованных каталогов
     const filteredPlanCtgls = useFilteredPlanCtlgs(state.planCtlgs, filter);
 
-    //Подключение к контексту сообщений
-    const { InlineMsgInfo } = useContext(MessagingСtx);
-
     //Обработка нажатия на элемент в списке каталогов планов
     const handlePlanCtlgClick = planCtlg => {
         if (state.selectedPlanCtlg.NRN != planCtlg.NRN) selectPlanCtlg(planCtlg);
@@ -144,15 +177,15 @@ const MechRecAssemblyMon = () => {
     //Перемещение к нужному плану
     const navigateToPlan = planIndex => {
         if (planIndex < 0) planIndex = 0;
-        if (planIndex > state.plans.length - 1) planIndex = state.plans.length - 1;
+        if (planIndex > state.planSpecs.length - 1) planIndex = state.planSpecs.length - 1;
         setState(pv => ({
             ...pv,
-            selectedPlan: { ...state.plans[planIndex] }
+            selectedPlanSpec: { ...state.planSpecs[planIndex] }
         }));
         setPlanDetailNavigation(pv => ({
             ...pv,
             disableNavigatePrev: planIndex == 0 ? true : false,
-            disableNavigateNext: planIndex == state.plans.length - 1 ? true : false,
+            disableNavigateNext: planIndex == state.planSpecs.length - 1 ? true : false,
             currentPlanIndex: planIndex
         }));
     };
@@ -162,11 +195,16 @@ const MechRecAssemblyMon = () => {
 
     //Обработка нажатия на кнопку "Назад"
     const handlePlanDetailBackClick = () => {
-        setState(pv => ({ ...pv, selectedPlan: {} }));
+        setState(pv => ({ ...pv, selectedPlanSpec: {} }));
     };
 
     //Обработка навигации из карточки с деталями плана
     const handlePlanDetailNavigateClick = direction => navigateToPlan(planDetailNavigation.currentPlanIndex + direction);
+
+    //Обработка изменения темы
+    const handleThemeChange = () => {
+        setTheme(theme.palette.type === "light" ? darkTheme : lightTheme);
+    };
 
     //Формирование текста заголовка
     const title = `${state.selectedPlanCtlg.SNAME} на ${state.selectedPlanCtlg.NMIN_YEAR} ${
@@ -175,53 +213,62 @@ const MechRecAssemblyMon = () => {
 
     //Генерация содержимого
     return (
-        <Box p={2}>
-            <ThemeProvider theme={theme}>
-                <Fab variant="extended" sx={STYLES.PLANS_BUTTON} onClick={() => setState(pv => ({ ...pv, showPlanList: !pv.showPlanList }))}>
-                    Программы
-                </Fab>
-                <Drawer
-                    anchor={"left"}
-                    open={state.showPlanList}
-                    onClose={() => setState(pv => ({ ...pv, showPlanList: false }))}
-                    sx={STYLES.PLANS_DRAWER}
-                >
-                    <PlanCtlgsList
-                        planCtlgs={filteredPlanCtgls}
-                        selectedPlanCtlg={state.selectedPlanCtlg.NRN}
-                        filter={filter}
-                        setFilter={setFilter}
-                        onClick={handlePlanCtlgClick}
-                    />
-                </Drawer>
-                {state.init == true ? (
-                    state.selectedPlanCtlg.NRN ? (
-                        <>
-                            <Typography variant="h3" align="center" color="text.title.fontColor" py={2}>
-                                {title}
+        <ThemeProvider theme={theme}>
+            <Container maxWidth={false} disableGutters sx={STYLES.ROOT_BG}>
+                <Box p={2}>
+                    <Fab variant="extended" sx={STYLES.PLANS_BUTTON} onClick={() => setState(pv => ({ ...pv, showPlanList: !pv.showPlanList }))}>
+                        Каталоги планов
+                    </Fab>
+                    <Drawer
+                        anchor={"left"}
+                        open={state.showPlanList}
+                        onClose={() => setState(pv => ({ ...pv, showPlanList: false }))}
+                        sx={STYLES.PLANS_DRAWER}
+                    >
+                        <PlanCtlgsList
+                            planCtlgs={filteredPlanCtgls}
+                            selectedPlanCtlg={state.selectedPlanCtlg.NRN}
+                            filter={filter}
+                            setFilter={setFilter}
+                            onClick={handlePlanCtlgClick}
+                        />
+                    </Drawer>
+                    <Stack display="flex" direction="row" justifyContent="flex-end" alignItems="center">
+                        <IconButton onClick={() => handleThemeChange()}>
+                            <Icon sx={STYLES.THEME_CHANGER}>{theme.palette.type === "light" ? "brightness_4" : "brightness_7"}</Icon>
+                        </IconButton>
+                    </Stack>
+                    {state.init == true ? (
+                        state.selectedPlanCtlg.NRN ? (
+                            <>
+                                <Typography variant="h3" sx={STYLES.MAIN_TITLE} pb={2}>
+                                    {title}
+                                </Typography>
+                                {state.planSpecsLoaded == true ? (
+                                    state.selectedPlanSpec.NRN ? (
+                                        <PlanSpecDetail
+                                            planSpec={state.selectedPlanSpec}
+                                            disableNavigatePrev={planDetailNavigation.disableNavigatePrev}
+                                            disableNavigateNext={planDetailNavigation.disableNavigateNext}
+                                            onNavigate={handlePlanDetailNavigateClick}
+                                            onBack={handlePlanDetailBackClick}
+                                        />
+                                    ) : (
+                                        <Box sx={STYLES.PLANS_LIST_BOX}>
+                                            <PlanSpecsList planSpecs={state.planSpecs} onItemClick={handlePlanClick} />
+                                        </Box>
+                                    )
+                                ) : null}
+                            </>
+                        ) : (
+                            <Typography variant="h4" sx={STYLES.MAIN_TITLE}>
+                                Укажите каталог планов для отображения спецификаций
                             </Typography>
-                            {state.plansLoaded == true ? (
-                                state.selectedPlan.NRN ? (
-                                    <PlanDetail
-                                        plan={state.selectedPlan}
-                                        disableNavigatePrev={planDetailNavigation.disableNavigatePrev}
-                                        disableNavigateNext={planDetailNavigation.disableNavigateNext}
-                                        onNavigate={handlePlanDetailNavigateClick}
-                                        onBack={handlePlanDetailBackClick}
-                                    />
-                                ) : (
-                                    <Box sx={STYLES.PLANS_LIST_BOX}>
-                                        <PlansList plans={state.plans} onItemClick={handlePlanClick} />
-                                    </Box>
-                                )
-                            ) : null}
-                        </>
-                    ) : (
-                        <InlineMsgInfo okBtn={false} text={"Укажите каталог планов для отображения его спецификаций"} />
-                    )
-                ) : null}
-            </ThemeProvider>
-        </Box>
+                        )
+                    ) : null}
+                </Box>
+            </Container>
+        </ThemeProvider>
     );
 };
 

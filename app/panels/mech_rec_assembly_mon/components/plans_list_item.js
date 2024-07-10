@@ -1,6 +1,6 @@
 /*
     Парус 8 - Панели мониторинга - ПУП - Мониторинг сборки изделий
-    Компонент: Элемент списка планов
+    Компонент: Элемент списка выпусков планов
 */
 
 //---------------------
@@ -26,8 +26,10 @@ const STYLES = {
         gap: "24px",
         border: "1px solid",
         borderRadius: "25px",
-        cursor: "pointer"
+        cursor: "pointer",
+        backgroundColor: "background.secondary"
     },
+    TEXT_INFO_FIELD: { color: "text.secondary.fontColor" },
     IMAGE_BOX: { width: "180px", height: "180px", alignItems: "center", justifyContent: "center", display: "flex" },
     IMAGE_LIST_ITEM: { textAlign: "center" },
     IMAGE_IMG: { width: "160px" }
@@ -38,7 +40,7 @@ const STYLES = {
 //------------------------------------
 
 //Изображение для элемента
-const PlansListItemImage = ({ card }) => {
+const PlanSpecsListItemImage = ({ card }) => {
     return (
         <Box sx={STYLES.IMAGE_BOX}>
             <ImageList variant="masonry" cols={1} gap={8}>
@@ -55,7 +57,7 @@ const PlansListItemImage = ({ card }) => {
 };
 
 //Контроль свойств - Изображение для элемента
-PlansListItemImage.propTypes = {
+PlanSpecsListItemImage.propTypes = {
     card: PropTypes.object
 };
 
@@ -63,13 +65,13 @@ PlansListItemImage.propTypes = {
 //Тело модуля
 //-----------
 
-//Элемент списка планов
-const PlansListItem = ({ card, cardIndex, onClick }) => {
+//Элемент списка выпусков планов
+const PlanSpecsListItem = ({ card, cardIndex, onClick }) => {
     return (
         <Box sx={STYLES.CONTAINER} onClick={() => (onClick ? onClick(card, cardIndex) : null)}>
-            <PlansListItemImage card={card} />
+            <PlanSpecsListItemImage card={card} />
             <Box textAlign="center">
-                <Typography variant="UDO_body1" color="text.secondary.fontColor">
+                <Typography variant="PlanSpecInfo" sx={STYLES.TEXT_INFO_FIELD}>
                     Номер борта
                 </Typography>
                 <Typography variant="h2">{card.SNUMB}</Typography>
@@ -80,10 +82,10 @@ const PlansListItem = ({ card, cardIndex, onClick }) => {
                 width={"155px"}
                 height={"155px"}
                 progressVariant={"h3"}
-                detailVariant={"UDO_body2"}
+                detailVariant={"PlanSpecProgressDetail"}
             />
             <Box>
-                <Typography variant="UDO_body1" color="text.secondary.fontColor">
+                <Typography variant="PlanSpecInfo" sx={STYLES.TEXT_INFO_FIELD}>
                     Год выпуска:
                 </Typography>
                 <Typography variant="subtitle1" mt={-1}>
@@ -94,8 +96,8 @@ const PlansListItem = ({ card, cardIndex, onClick }) => {
     );
 };
 
-//Контроль свойств - Элемент списка планов
-PlansListItem.propTypes = {
+//Контроль свойств - Элемент списка выпусков планов
+PlanSpecsListItem.propTypes = {
     card: PropTypes.object,
     cardIndex: PropTypes.number,
     onClick: PropTypes.func
@@ -105,4 +107,4 @@ PlansListItem.propTypes = {
 //Интерфейс модуля
 //----------------
 
-export { PlansListItem };
+export { PlanSpecsListItem };
