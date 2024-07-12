@@ -24,6 +24,7 @@ const STYLES = {
         flexDirection: "column",
         margin: "0px 32px",
         borderRadius: "50%",
+        backgroundColor: "background.progress",
         ...(width ? { width } : {}),
         ...(height ? { height } : {})
     })

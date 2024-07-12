@@ -7,34 +7,62 @@
 //Подключение библиотек
 //---------------------
 
-import React, { useState, useContext, useCallback, useEffect } from "react"; //Классы React
-import { Typography, Box, Grid } from "@mui/material"; //Интерфейсные элементы
-import { object2Base64XML } from "../../core/utils"; //Вспомогательные процедуры и функции
+import React from "react"; //Классы React
+import { Typography, Box } from "@mui/material"; //Интерфейсные элементы
 import { P8PDataGrid, P8P_DATA_GRID_SIZE } from "../../components/p8p_data_grid"; //Таблица данных
 import { P8P_DATA_GRID_CONFIG_PROPS } from "../../config_wrapper"; //Подключение компонентов к настройкам приложения
-import { BackEndСtx } from "../../context/backend"; //Контекст взаимодействия с сервером
+import { useMechRecDeptCostJobs, useFilter } from "./hooks"; //Кастомные состояния
+import { FilterComponent } from "./components/filter"; //Компонент фильтра
 
 //---------
 //Константы
 //---------
 
-//Размер страницы данных
-const DATA_GRID_PAGE_SIZE = 5;
+//Текущая дата
+const currentDate = new Date();
+const currentMonth = currentDate.getUTCMonth() + 1;
+const currentYear = currentDate.getUTCFullYear();
+
+//Кастомные цвета
+const colors = {
+    lightred: "#ef8989",
+    lightyellow: "#f5f5b0",
+    blue: "#0097ff"
+};
 
 //Стили
 const STYLES = {
-    CONTAINER: { textAlign: "center", paddingTop: "20px" },
+    CONTAINER: { textAlign: "center", paddingTop: "10px" },
     TITLE: { paddingBottom: "15px" },
-    DATA_GRID_CONTAINER: { minWidth: "95vw", maxWidth: "95vw", minHeight: "80vh", maxHeight: "80vh" },
-    DATA_GRID_CELL: (row, columnDef) => ({
-        padding: "8px",
-        textOverflow: "ellipsis",
-        overflow: "hidden",
-        whiteSpace: "pre",
-        ...(columnDef.name.match(/N.*_VALUE/) && row[columnDef.name]
-            ? { backgroundColor: row[`${columnDef.name.substring(0, 12)}_TYPE`] === 0 ? "lightgrey" : "lightgreen" }
-            : {})
-    })
+    DATA_GRID_CONTAINER: {
+        minWidth: "700px",
+        maxWidth: "100vw",
+        minHeight: "calc(100vh - 250px)",
+        maxHeight: "calc(100vh - 250px)"
+    },
+    DATA_GRID_CELL: (row, columnDef) => {
+        //Определяем тип дня
+        let dayType = columnDef.name.match(/N.*_VALUE/) ? row[`${columnDef.name.substring(0, 12)}_TYPE`] : null;
+        //Определяем процент загрузки
+        let procentLoad = columnDef.name === "SNAME" ? row["NPROCENT_LOAD"] : null;
+        return {
+            padding: "8px",
+            textOverflow: "ellipsis",
+            overflow: "hidden",
+            whiteSpace: "pre",
+            ...(dayType
+                ? {
+                      backgroundColor: [1, 3].includes(dayType) ? "lightgrey" : dayType === 4 ? "lightgreen" : null,
+                      color: [2, 3].includes(dayType) ? colors.blue : null
+                  }
+                : procentLoad || procentLoad === 0
+                ? {
+                      backgroundColor:
+                          procentLoad >= 85 ? "lightgreen" : procentLoad >= 50 ? colors.lightyellow : procentLoad > 0 ? colors.lightred : "lightgrey"
+                  }
+                : {})
+        };
+    }
 };
 
 //------------------------------------
@@ -54,54 +82,11 @@ const dataCellRender = ({ row, columnDef }) => ({
 
 //Корневая панель загрузки цеха
 const MechRecDeptCostJobs = () => {
+    //Собственное состояние - фильтр
+    const [filter, setFilter, getWorkDays, getWorkHours] = useFilter(currentMonth, currentYear);
+
     //Собственное состояние - таблица данных
-    const [costJobs, setCostJobs] = useState({
-        subdiv: null,
-        dataLoaded: false,
-        columnsDef: [],
-        filters: [],
-        orders: null,
-        rows: [],
-        reload: true,
-        pageNumber: 1,
-        morePages: true,
-        fixedHeader: false,
-        fixedColumns: 0
-    });
-
-    //Подключение к контексту взаимодействия с сервером
-    const { executeStored, SERV_DATA_TYPE_CLOB } = useContext(BackEndСtx);
-
-    //Загрузка данных таблицы с сервера
-    const loadData = useCallback(async () => {
-        if (costJobs.reload) {
-            const data = await executeStored({
-                stored: "PKG_P8PANELS_MECHREC.FCJOBS_DEP_LOAD_DG_GET",
-                args: {
-                    CFILTERS: { VALUE: object2Base64XML(costJobs.filters, { arrayNodeName: "filters" }), SDATA_TYPE: SERV_DATA_TYPE_CLOB },
-                    CORDERS: { VALUE: object2Base64XML(costJobs.orders, { arrayNodeName: "orders" }), SDATA_TYPE: SERV_DATA_TYPE_CLOB },
-                    NPAGE_NUMBER: costJobs.pageNumber,
-                    NPAGE_SIZE: DATA_GRID_PAGE_SIZE,
-                    NINCLUDE_DEF: costJobs.dataLoaded ? 0 : 1
-                },
-                respArg: "COUT"
-            });
-            setCostJobs(pv => ({
-                ...pv,
-                fixedHeader: data.XFCJOBS.XDATA.XDATA_GRID.fixedHeader,
-                fixedColumns: data.XFCJOBS.XDATA.XDATA_GRID.fixedColumns,
-                subdiv: data.XINFO.SSUBDIV,
-                columnsDef: data.XFCJOBS.XDATA.XCOLUMNS_DEF ? [...data.XFCJOBS.XDATA.XCOLUMNS_DEF] : pv.columnsDef,
-                rows: pv.pageNumber == 1 ? [...(data.XFCJOBS.XDATA.XROWS || [])] : [...pv.rows, ...(data.XFCJOBS.XDATA.XROWS || [])],
-                dataLoaded: true,
-                reload: false,
-                morePages: (data.XFCJOBS.XDATA.XROWS || []).length >= DATA_GRID_PAGE_SIZE
-            }));
-        }
-    }, [costJobs.reload, costJobs.filters, costJobs.orders, costJobs.dataLoaded, costJobs.pageNumber, executeStored, SERV_DATA_TYPE_CLOB]);
-
-    //При изменении состояния фильтра
-    const handleFilterChanged = ({ filters }) => setCostJobs(pv => ({ ...pv, filters: [...filters], pageNumber: 1, reload: true }));
+    const [costJobs, setCostJobs] = useMechRecDeptCostJobs(filter.department.NRN, filter.date.fullDate, filter.totalWorkHours);
 
     //При изменении состояния сортировки
     const handleOrderChanged = ({ orders }) => setCostJobs(pv => ({ ...pv, orders: [...orders], pageNumber: 1, reload: true }));
@@ -109,41 +94,69 @@ const MechRecDeptCostJobs = () => {
     //При изменении количества отображаемых страниц
     const handlePagesCountChanged = () => setCostJobs(pv => ({ ...pv, pageNumber: pv.pageNumber + 1, reload: true }));
 
-    //При необходимости обновить данные таблицы
-    useEffect(() => {
-        loadData();
-    }, [costJobs.reload, loadData]);
+    //При изменении месяца
+    const handleMonthChange = side => {
+        //Исходим от стороны, в которую идем
+        let newDate =
+            side === 1
+                ? filter.date.month === 12
+                    ? { month: 1, year: filter.date.year + 1 }
+                    : { month: filter.date.month + 1, year: filter.date.year }
+                : filter.date.month === 1
+                ? { month: 12, year: filter.date.year - 1 }
+                : { month: filter.date.month - 1, year: filter.date.year };
+        //Формируем полное представление даты
+        newDate.fullDate = newDate.month.toString().padStart(2, "0") + "." + newDate.year;
+        //Считываем количество рабочих дней и обновляем состояние
+        getWorkDays({ newDate, init: filter.init });
+    };
+
+    //При выборе подразделения
+    const handleSelectDeparture = department => {
+        //Если подразделение изменилось
+        if (department.NRN !== filter.department.NRN) {
+            //Получаем количество рабочих часов
+            getWorkHours(department);
+            //Обновляем таблицу загрузки цеха
+            setCostJobs(pv => ({ ...pv, pageNumber: 1, reload: true }));
+        } else {
+            setFilter(pv => ({ ...pv, openedDepartment: false }));
+        }
+    };
 
     //Генерация содержимого
     return (
-        <div style={STYLES.CONTAINER}>
-            <Typography sx={STYLES.TITLE} variant={"h6"}>
-                {costJobs.dataLoaded ? `Загрузка станков "${costJobs.subdiv}"` : null}
-            </Typography>
-            <Grid container spacing={1}>
-                <Grid item xs={12}>
-                    <Box pt={1} display="flex" justifyContent="center" alignItems="center">
-                        {costJobs.dataLoaded ? (
-                            <P8PDataGrid
-                                {...P8P_DATA_GRID_CONFIG_PROPS}
-                                containerComponentProps={{ elevation: 6, style: STYLES.DATA_GRID_CONTAINER }}
-                                fixedHeader={costJobs.fixedHeader}
-                                fixedColumns={costJobs.fixedColumns}
-                                columnsDef={costJobs.columnsDef}
-                                rows={costJobs.rows}
-                                size={P8P_DATA_GRID_SIZE.LARGE}
-                                morePages={costJobs.morePages}
-                                reloading={costJobs.reload}
-                                onOrderChanged={handleOrderChanged}
-                                onFilterChanged={handleFilterChanged}
-                                onPagesCountChanged={handlePagesCountChanged}
-                                dataCellRender={prms => dataCellRender({ ...prms })}
-                            />
-                        ) : null}
-                    </Box>
-                </Grid>
-            </Grid>
-        </div>
+        <Box>
+            <FilterComponent
+                filter={filter}
+                setFilter={setFilter}
+                handleMonthChange={handleMonthChange}
+                handleSelectDeparture={handleSelectDeparture}
+            />
+            <div style={STYLES.CONTAINER}>
+                <Typography sx={STYLES.TITLE} variant={"h6"}>
+                    {costJobs.dataLoaded ? `Загрузка станков "${filter.department.SNAME}"` : null}
+                </Typography>
+                <Box pt={1} display="flex" justifyContent="center" alignItems="center">
+                    {costJobs.dataLoaded ? (
+                        <P8PDataGrid
+                            {...P8P_DATA_GRID_CONFIG_PROPS}
+                            containerComponentProps={{ elevation: 6, style: STYLES.DATA_GRID_CONTAINER }}
+                            fixedHeader={costJobs.fixedHeader}
+                            fixedColumns={costJobs.fixedColumns}
+                            columnsDef={costJobs.columnsDef}
+                            rows={costJobs.rows}
+                            size={P8P_DATA_GRID_SIZE.LARGE}
+                            morePages={costJobs.morePages}
+                            reloading={costJobs.reload}
+                            onOrderChanged={handleOrderChanged}
+                            onPagesCountChanged={handlePagesCountChanged}
+                            dataCellRender={prms => dataCellRender({ ...prms })}
+                        />
+                    ) : null}
+                </Box>
+            </div>
+        </Box>
     );
 };
 
